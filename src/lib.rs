@@ -1,13 +1,7 @@
 mod utils;
+mod board;
+
+#[macro_use]
+mod log;
 
 use wasm_bindgen::prelude::*;
-
-#[wasm_bindgen]
-extern "C" {
-    fn alert(s: &str);
-}
-
-#[wasm_bindgen]
-pub fn greet() {
-    alert("Hello, wasm-tetris!");
-}
