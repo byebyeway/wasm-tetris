@@ -8,7 +8,8 @@ const ALIVE_COLOR = "#000000";
 const height = 64;
 const width = 64;
 
-const board = Board.new(height, width);
+const board = Board.new_board(height, width);
+board.new_round()
 
 const canvas = document.getElementById("game-of-tetris");
 canvas.height = (CELL_SIZE + 1) * height + 1;
@@ -33,13 +34,13 @@ const drawGrid = () => {
     }
   
     ctx.stroke();
-  };
+};
 
-  const getIndex = (row, column) => {
+const getIndex = (row, column) => {
     return row * width + column;
-  };
+};
   
-  const drawCells = () => {
+const drawCells = () => {
     const cellsPtr = board.get_cells();
     const cells = new Uint8Array(memory.buffer, cellsPtr, width * height);
   
@@ -63,16 +64,29 @@ const drawGrid = () => {
     }
   
     ctx.stroke();
-  };  
+};  
 
-// const renderLoop = () => {
+const renderLoop = () => {
 
-//     // drawGrid();
-//     drawCells();
-//     requestAnimationFrame(renderLoop);
-// };
+    // drawGrid();
+    drawCells();
+    requestAnimationFrame(renderLoop);
+};
 
+window.addEventListener("keydown", (event) => {
+	if (event.key == 'w') {
+        board.up();
+    }
+    if (event.key == 's') {
+        board.down();
+    }
+    if (event.key == 'a') {
+        board.left();
+    }
+    if (event.key == 'd') {
+        board.right();
+    }
+});
 
 drawGrid();
-// drawCells();
-// requestAnimationFrame(renderLoop);
+requestAnimationFrame(renderLoop);
