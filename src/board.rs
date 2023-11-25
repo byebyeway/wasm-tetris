@@ -6,7 +6,8 @@ struct Board {
     width : u32,
     height : u32,
     cells : Vec<CellState>,
-    active_position : Point
+    active_position : Point,
+    active_block: Block
 }
 
 #[wasm_bindgen]
@@ -16,12 +17,6 @@ pub enum CellState {
     Ocupied
 }
 
-struct Block {
-    name : String,
-    width : u32,
-    height : u32,
-    
-}
 
 #[derive(Clone,Copy)]
 struct Point {
@@ -41,8 +36,10 @@ impl Board {
     }
 
     pub fn new_board( width : u32, height : u32) -> Board {
+        log!("init new board");
         utils::set_panic_hook();
         let mut v : Vec<CellState> = (0..width * height).map(|_| CellState::Empty).collect();
+        let block = Block::get_block();
         Board {
             width,
             height,
@@ -50,16 +47,28 @@ impl Board {
             active_position : Point {
                 x : 0 ,
                 y : 0
-            }
+            },
+            active_block : block
         }
     }
 
     pub fn new_round(&mut self) {
         self.active_position = Point{
-            x : 0,
-            y : 0
+            x : (self.width / 2) as i32,
+            y : 1
         };
-        self.cells[0] = CellState::Ocupied;
+    }
+
+    pub fn draw_current_block(&mut self){
+        let center_index = self.get_index(self.active_position.y as u32, self.active_position.x as u32);
+        log!("center index is {}",center_index);
+        for x  in [self.width -1, 0, 1]{
+            for y  in [self.height -1, 0, 1]{
+                let index = self.get_index((y  + self.active_position.y as u32)%self.height, (x +self.active_position.x as u32)%self.width );
+                log!("neighbor index is {}",index);
+                self.cells[index as usize] = self.active_block.shape_array[(4-(center_index as i32 - index as i32)) as usize];
+            }
+        }
     }
 
     pub fn up(&mut self) {
@@ -68,7 +77,8 @@ impl Board {
             y: self.active_position.y - 1
         };
 
-        self.move_block(next_position);
+        self.draw_current_block();
+        // self.move_block(next_position);
     }
 
     pub fn down(&mut self) {
@@ -127,6 +137,44 @@ impl Board {
         self.cells[index as usize] = CellState::Ocupied;
     }
 
+}
+
+#[wasm_bindgen]
+#[derive(Clone)]
+struct Block {
+    name : String,
+    width : u32,
+    height : u32,
+    shape_array : [CellState ; 9]
+}
+
+trait BasicBlockOperation {
+    
+    fn get_init_block() -> Block{
+        let mut array = [CellState::Empty ; 9];
+        array[4] = CellState::Ocupied;
+        Block {
+            name : String::from("basic"),
+            width : 3,
+            height : 3,
+            shape_array : array
+        }
+    }
+
+    fn get_block() -> Block;
 
 }
 
+impl BasicBlockOperation for Block {
+
+    fn get_block() -> Block{
+        let mut b = Self::get_init_block();
+        b.shape_array[5] =CellState::Ocupied;
+        b.shape_array[7] =CellState::Ocupied;
+        b.shape_array[8] =CellState::Ocupied;
+        b
+    }
+
+
+
+}
