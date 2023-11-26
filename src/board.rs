@@ -36,7 +36,7 @@ impl Board {
     }
 
     pub fn new_board( width : u32, height : u32) -> Board {
-        log!("init new board");
+        // log!("init new board");
         utils::set_panic_hook();
         let mut v : Vec<CellState> = (0..width * height).map(|_| CellState::Empty).collect();
         let block = Block::get_block();
@@ -61,14 +61,25 @@ impl Board {
 
     pub fn draw_current_block(&mut self){
         let center_index = self.get_index(self.active_position.y as u32, self.active_position.x as u32);
-        log!("center index is {}",center_index);
+        // log!("center index is {}",center_index);
         for x  in [self.width -1, 0, 1]{
             for y  in [self.height -1, 0, 1]{
-                let index = self.get_index((y  + self.active_position.y as u32)%self.height, (x +self.active_position.x as u32)%self.width );
-                log!("neighbor index is {}",index);
+                let line = (y  + self.active_position.y as u32)%self.height;
+                let col = (x +self.active_position.x as u32)%self.width;
+                let index = self.get_index(line,  col);
+                let mapped_index = 4 - (self.active_position.x - col as i32) ;
+                // log!("neighbor index is {}",index);
                 self.cells[index as usize] = self.active_block.shape_array[(4-(center_index as i32 - index as i32)) as usize];
             }
         }
+    }
+
+    fn left_to_edge_length(&self) -> u32 {
+        self.active_position.x - self.active_block.width as u32 /2
+    }
+
+    fn right_to_edge_length(&self) -> u32 {
+        
     }
 
     pub fn up(&mut self) {
@@ -177,4 +188,19 @@ impl BasicBlockOperation for Block {
 
 
 
+}
+
+#[cfg(test)]
+#[cfg(not(target_arch = "wasm32"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mapping_block_to_board() {
+        let block = Block::get_block();
+        let mut board = Board::new_board(6, 6);
+        board.new_round();
+        board.draw_current_block();
+ 
+    }
 }
