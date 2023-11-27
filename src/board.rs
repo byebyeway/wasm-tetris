@@ -1,5 +1,6 @@
 use wasm_bindgen::prelude::*;
 use super::*;
+use getrandom::getrandom;
 
 #[wasm_bindgen]
 struct Board {
@@ -47,7 +48,8 @@ impl Board {
         // log!("init new board");
         utils::set_panic_hook();
         let mut v : Vec<CellState> = (0..width * height).map(|_| CellState::Empty).collect();
-        let block = Block::get_block();
+        let block_list = BlockType::init();
+        let block = block_list.get_random_block();
         Board {
             width,
             height,
@@ -74,7 +76,13 @@ impl Board {
         for x  in [self.width -1, 0, 1]{
             for y  in [self.height -1, 0, 1]{
                 let line = (y  + self.active_position.y as u32)%self.height;
+                if  y == self.height -1 && line > self.active_position.y as u32 {
+                    continue;
+                }
                 let col = (x +self.active_position.x as u32)%self.width;
+                if  x == self.width -1 && col > self.active_position.x as u32 {
+                    continue;
+                }
                 let index = self.get_index(line,  col);
                 
                 let width_diff = match self.active_position.x - col as i32 {
@@ -178,7 +186,14 @@ impl Board {
     }
 
     fn left_to_edge_length(&self, next_x : i32) -> i32 {
-        next_x +  self.active_block.left_most_cell - self.active_block.center_x_offset
+        log!("enter left_to_edge_length");
+        match self.active_block.left_most_cell - self.active_block.center_x_offset {
+            x if x < 0 => -x + next_x,
+            x if x == 0 => next_x,
+            x if x > 0 => next_x+x,
+            _ => 0
+        }
+
     }
 
     fn right_to_edge_length(&self, next_x : i32) -> i32 {
@@ -227,8 +242,103 @@ struct Block {
     center_y_offset: i32
 }
 
-trait BasicBlockOperation {
-    
+#[wasm_bindgen]
+struct BlockType {
+    block_list : [Block ; 5],
+    random_number_array : [u8 ; 1]
+}
+
+impl BlockType {
+
+    fn init() -> BlockType{
+        let block_list = [
+            Self::get_square_block(),
+            Self::get_i_block(),
+            Self::get_l_block(),
+            Self::get_t_block(),
+            Self::get_z_block()
+        ];
+        let random_number_array = [0 ; 1];
+        BlockType {
+            block_list,
+            random_number_array
+        }
+    }
+
+    fn get_random_block(&mut self) -> Block {
+        getrandom(self.random_number_array);
+        let index = & self.random_number_array[0] % 5;
+        self.block_list[index as usize]
+    }
+
+    fn get_basic_block() -> Block{
+        let mut array = [CellState::Empty ; 9];
+        array[4] = CellState::Ocupied;
+        Block {
+            name : String::from("basic"),
+            width : 3,
+            height : 3,
+            shape_array : array ,
+            left_most_cell : 0,
+            right_most_cell : 0,
+            top_most_cell : 0,
+            bottom_most_cell : 0,
+            center_x_offset : 1,
+            center_y_offset: 1
+        }
+    }
+
+    fn get_square_block () -> Block {
+        let mut b = Self::get_basic_block();
+        b.shape_array[5] =CellState::Ocupied;
+        b.shape_array[7] =CellState::Ocupied;
+        b.shape_array[8] =CellState::Ocupied;
+        b.calculate_most_cell();
+        b
+    }
+
+    fn get_z_block () -> Block {
+        let mut b = Self::get_basic_block();
+        b.shape_array[3] =CellState::Ocupied;
+        b.shape_array[7] =CellState::Ocupied;
+        b.shape_array[8] =CellState::Ocupied;
+        b.calculate_most_cell();
+        b
+    }
+
+    fn get_t_block () -> Block {
+        let mut b = Self::get_basic_block();
+        b.shape_array[0] =CellState::Ocupied;
+        b.shape_array[1] =CellState::Ocupied;
+        b.shape_array[2] =CellState::Ocupied;
+        b.shape_array[7] =CellState::Ocupied;
+        b.calculate_most_cell();
+        b
+    }
+
+    fn get_i_block () -> Block {
+        let mut b = Self::get_basic_block();
+        b.shape_array[1] =CellState::Ocupied;
+        b.shape_array[1] =CellState::Ocupied;
+        b.shape_array[7] =CellState::Ocupied;
+        b.calculate_most_cell();
+        b
+    }
+
+    fn get_l_block () -> Block {
+        let mut b = Self::get_basic_block();
+        b.shape_array[1] =CellState::Ocupied;
+        b.shape_array[1] =CellState::Ocupied;
+        b.shape_array[7] =CellState::Ocupied;
+        b.shape_array[8] =CellState::Ocupied;
+        b.calculate_most_cell();
+        b
+    }
+}
+
+
+impl Block {
+
     fn get_init_block() -> Block{
         let mut array = [CellState::Empty ; 9];
         array[4] = CellState::Ocupied;
@@ -246,37 +356,11 @@ trait BasicBlockOperation {
         }
     }
 
-    fn get_block() -> Block;
-
-}
-
-impl BasicBlockOperation for Block {
-
-    fn get_block() -> Block{
-        let mut b = Self::get_init_block();
-        b.shape_array[3] =CellState::Ocupied;
-        b.shape_array[6] =CellState::Ocupied;
-        b.shape_array[7] =CellState::Ocupied;
-        // b.shape_array[5] =CellState::Ocupied;
-        // b.shape_array[7] =CellState::Ocupied;
-        // b.shape_array[8] =CellState::Ocupied;
-        let (x,y,m,n) = b.calculate_most_cell();
-        b.left_most_cell = x;
-        b.right_most_cell = y;
-        b.top_most_cell = m;
-        b.bottom_most_cell = n;
-        b
-    }
-
-}
-
-impl Block {
     fn get_index(&self , line: u32, column : u32 ) -> u32 {
         self.width * line + column 
     }
 
-    fn calculate_most_cell(&self) -> (i32,i32,i32,i32){
-        println!("enter");
+    fn calculate_most_cell(&mut self){
         let mut left_most_cell : i32 = -1;
         let mut right_most_cell : i32 = -1;
         let mut top_most_cell : i32 = -1;
@@ -297,7 +381,10 @@ impl Block {
                 }
             }
         }
-        (left_most_cell, right_most_cell, top_most_cell, bottom_most_cell)
+        self.left_most_cell = left_most_cell;
+        self.right_most_cell = right_most_cell;
+        self.top_most_cell = top_most_cell;
+        self.bottom_most_cell = bottom_most_cell;
     }
 }
 
