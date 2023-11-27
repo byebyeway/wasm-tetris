@@ -17,7 +17,15 @@ pub enum CellState {
     Ocupied
 }
 
+#[wasm_bindgen]
+#[derive(Clone, PartialEq, Copy, Debug)]
+pub enum CollisionResult {
+    EdgeCollision,
+    NoEdgeCollision,
+    HitBottom
+}
 
+#[wasm_bindgen]
 #[derive(Clone,Copy)]
 struct Point {
     x : i32,
@@ -59,7 +67,8 @@ impl Board {
         };
     }
 
-    pub fn draw_current_block(&mut self){
+    pub fn draw_current_block(&mut self, next_position : Point){
+        self.active_position = next_position;
         let center_index = self.get_index(self.active_position.y as u32, self.active_position.x as u32);
         // log!("center index is {}",center_index);
         for x  in [self.width -1, 0, 1]{
@@ -67,19 +76,25 @@ impl Board {
                 let line = (y  + self.active_position.y as u32)%self.height;
                 let col = (x +self.active_position.x as u32)%self.width;
                 let index = self.get_index(line,  col);
-                let mapped_index = 4 - (self.active_position.x - col as i32) ;
+                
+                let width_diff = match self.active_position.x - col as i32 {
+                    x if  x > 0 => 0,
+                    x if x == 0 => 1,
+                    x if x < 0 => 2 ,
+                    _ => 0
+                };
+
+                let height_diff = match self.active_position.y - line as i32 {
+                    x if  x > 0 => 0,
+                    x if x == 0 => 1,
+                    x if x < 0 => 2 ,
+                    _ => 0
+                };
+                let mapping_index = width_diff + height_diff * self.active_block.width;
                 // log!("neighbor index is {}",index);
-                self.cells[index as usize] = self.active_block.shape_array[(4-(center_index as i32 - index as i32)) as usize];
+                self.cells[index as usize] = self.active_block.shape_array[mapping_index as usize];
             }
         }
-    }
-
-    fn left_to_edge_length(&self) -> u32 {
-        self.active_position.x - self.active_block.width as u32 /2
-    }
-
-    fn right_to_edge_length(&self) -> u32 {
-        
     }
 
     pub fn up(&mut self) {
@@ -87,9 +102,7 @@ impl Board {
             x: self.active_position.x ,
             y: self.active_position.y - 1
         };
-
-        self.draw_current_block();
-        // self.move_block(next_position);
+        self.move_block(next_position);
     }
 
     pub fn down(&mut self) {
@@ -118,35 +131,84 @@ impl Board {
     }
 
     fn move_block(&mut self, next_position : Point){
-        if self.edge_collison_check(&next_position){
-            return
-        }else{
-            self.clear_last_position();
-            self.refresh_active(next_position);
+        match self.edge_collison_check(& next_position) {
+            CollisionResult::EdgeCollision => return (),
+            _ => {
+                self.clear_last_position();
+                self.draw_current_block(next_position);
+            }
         }
-    }
-
-    /// return true when crash edge
-    fn edge_collison_check(&self, next_position : & Point) -> bool {
-        if(next_position.x < 0 || next_position.x > ((self.width-1) as i32)){
-            return true;
-        }
-        if(next_position.y<0 || next_position.y > ((self.height-1) as i32)){
-            return true;
-        }
-        return false;
     }
 
     fn clear_last_position(&mut self){
-        let index = self.get_index(self.active_position.y as u32 , self.active_position.x as u32);
-        self.cells[index as usize] = CellState::Empty;
+        for x  in [self.width -1, 0, 1]{
+            for y  in [self.height -1, 0, 1]{
+                let line = (y  + self.active_position.y as u32)%self.height;
+                let col = (x +self.active_position.x as u32)%self.width;
+                let index = self.get_index(line,  col);
+                self.cells[index as usize] = CellState::Empty;
+            }
+        }
     }
 
+    ///un used
     fn refresh_active(&mut self, next_position : Point) {
         self.active_position = next_position;
         let index = self.get_index(next_position.y as u32 , next_position.x as u32);
         self.cells[index as usize] = CellState::Ocupied;
     }
+
+    /// return true when crash edge
+    fn edge_collison_check(&self, next_position : & Point) -> CollisionResult {
+        let horizon_edge_collision = self.check_horizon_edge_collision(next_position);
+        let vertical_edge_collision = self.check_vertical_edge_collision(next_position);
+        log!("horizon_edge collision is {:?}",horizon_edge_collision);
+        log!("vertical edge collision is {:?}",vertical_edge_collision);
+        match horizon_edge_collision {
+            CollisionResult::EdgeCollision => return CollisionResult::EdgeCollision,
+            _ => ()
+        };
+        match vertical_edge_collision {
+            CollisionResult::EdgeCollision => return CollisionResult::EdgeCollision,
+            _ => ()
+        };
+
+        CollisionResult::NoEdgeCollision
+
+    }
+
+    fn left_to_edge_length(&self, next_x : i32) -> i32 {
+        next_x +  self.active_block.left_most_cell - self.active_block.center_x_offset
+    }
+
+    fn right_to_edge_length(&self, next_x : i32) -> i32 {
+        self.width as i32 - 1 + (self.active_block.width as i32 - self.active_block.right_most_cell - self.active_block.center_x_offset) - next_x - self.active_block.width as i32 /2
+    }
+
+    fn check_horizon_edge_collision(&self, next_position : & Point) -> CollisionResult {
+        let a = self.right_to_edge_length(next_position.x);
+        let b = self.left_to_edge_length(next_position.x);
+        if(self.left_to_edge_length(next_position.x) >= 0 && self.right_to_edge_length(next_position.x) >= 0){
+            return CollisionResult::NoEdgeCollision;
+        }
+        CollisionResult::EdgeCollision
+    }
+
+    fn up_to_edge_length(&self, next_y : i32) -> i32 {
+        next_y + self.active_block.top_most_cell  - self.active_block.center_y_offset
+    }
+
+    fn down_to_edge_length(&self, next_y : i32) -> i32 {
+        self.height as i32 - 1 + (self.active_block.height as i32 - self.active_block.bottom_most_cell - self.active_block.center_y_offset) - next_y - self.active_block.height as i32 /2
+    }
+
+    fn check_vertical_edge_collision(&self, next_position : & Point) -> CollisionResult {
+        if(self.up_to_edge_length(next_position.y) >= 0 && self.down_to_edge_length(next_position.y) >= 0){
+            return CollisionResult::NoEdgeCollision;
+        }
+        CollisionResult::EdgeCollision
+    }
+
 
 }
 
@@ -156,7 +218,13 @@ struct Block {
     name : String,
     width : u32,
     height : u32,
-    shape_array : [CellState ; 9]
+    shape_array : [CellState ; 9],
+    left_most_cell : i32,
+    right_most_cell : i32,
+    top_most_cell : i32,
+    bottom_most_cell : i32,
+    center_x_offset: i32,
+    center_y_offset: i32
 }
 
 trait BasicBlockOperation {
@@ -168,7 +236,13 @@ trait BasicBlockOperation {
             name : String::from("basic"),
             width : 3,
             height : 3,
-            shape_array : array
+            shape_array : array ,
+            left_most_cell : 0,
+            right_most_cell : 0,
+            top_most_cell : 0,
+            bottom_most_cell : 0,
+            center_x_offset : 1,
+            center_y_offset: 1
         }
     }
 
@@ -180,14 +254,51 @@ impl BasicBlockOperation for Block {
 
     fn get_block() -> Block{
         let mut b = Self::get_init_block();
-        b.shape_array[5] =CellState::Ocupied;
+        b.shape_array[3] =CellState::Ocupied;
+        b.shape_array[6] =CellState::Ocupied;
         b.shape_array[7] =CellState::Ocupied;
-        b.shape_array[8] =CellState::Ocupied;
+        // b.shape_array[5] =CellState::Ocupied;
+        // b.shape_array[7] =CellState::Ocupied;
+        // b.shape_array[8] =CellState::Ocupied;
+        let (x,y,m,n) = b.calculate_most_cell();
+        b.left_most_cell = x;
+        b.right_most_cell = y;
+        b.top_most_cell = m;
+        b.bottom_most_cell = n;
         b
     }
 
+}
 
+impl Block {
+    fn get_index(&self , line: u32, column : u32 ) -> u32 {
+        self.width * line + column 
+    }
 
+    fn calculate_most_cell(&self) -> (i32,i32,i32,i32){
+        println!("enter");
+        let mut left_most_cell : i32 = -1;
+        let mut right_most_cell : i32 = -1;
+        let mut top_most_cell : i32 = -1;
+        let mut bottom_most_cell : i32 = -1;
+        for i in 0..self.width {
+            for j in 0..self.height {
+                let index =  self.get_index(j, i);
+                if self.shape_array[index as usize] == CellState::Ocupied && left_most_cell == -1 {
+                    left_most_cell = i as i32;
+                } else if self.shape_array[index as usize] == CellState::Ocupied {
+                    right_most_cell = i as i32;
+                }
+                
+                if self.shape_array[index as usize] == CellState::Ocupied && top_most_cell == -1 {
+                    top_most_cell = j as i32;
+                } else if self.shape_array[index as usize] == CellState::Ocupied {
+                    bottom_most_cell = j as i32;
+                }
+            }
+        }
+        (left_most_cell, right_most_cell, top_most_cell, bottom_most_cell)
+    }
 }
 
 #[cfg(test)]
@@ -200,7 +311,27 @@ mod tests {
         let block = Block::get_block();
         let mut board = Board::new_board(6, 6);
         board.new_round();
-        board.draw_current_block();
+        // board.draw_current_block();
  
     }
+
+    #[test]
+    fn test_collision() {
+        let block = Block::get_block();
+        let mut board = Board::new_board(6, 6);
+        board.new_round();
+        let next_position = Point {
+            x: 4,
+            y: 3
+        };
+        board.check_horizon_edge_collision(& next_position);
+    }
+
+    #[test]
+    fn test_block_most_cell() {
+        let block = Block::get_block();
+        let (a,b,c,d) = block.calculate_most_cell();
+    }
+
+
 }
