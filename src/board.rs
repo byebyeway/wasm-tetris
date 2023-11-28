@@ -8,7 +8,7 @@ struct Board {
     height : u32,
     cells : Vec<CellState>,
     active_position : Point,
-    active_block: Block
+    active_block:  Block
 }
 
 #[wasm_bindgen]
@@ -48,8 +48,7 @@ impl Board {
         // log!("init new board");
         utils::set_panic_hook();
         let mut v : Vec<CellState> = (0..width * height).map(|_| CellState::Empty).collect();
-        let block_list = BlockType::init();
-        let block = block_list.get_random_block();
+        let block = BlockType::get_random_block();
         Board {
             width,
             height,
@@ -67,6 +66,8 @@ impl Board {
             x : (self.width / 2) as i32,
             y : 1
         };
+        let block = BlockType::get_random_block();
+        self.active_block = block;
     }
 
     pub fn draw_current_block(&mut self, next_position : Point){
@@ -243,32 +244,22 @@ struct Block {
 }
 
 #[wasm_bindgen]
-struct BlockType {
-    block_list : [Block ; 5],
-    random_number_array : [u8 ; 1]
-}
+struct BlockType {}
 
 impl BlockType {
 
-    fn init() -> BlockType{
-        let block_list = [
-            Self::get_square_block(),
-            Self::get_i_block(),
-            Self::get_l_block(),
-            Self::get_t_block(),
-            Self::get_z_block()
-        ];
-        let random_number_array = [0 ; 1];
-        BlockType {
-            block_list,
-            random_number_array
+    fn get_random_block() -> Block {
+        let mut random_number_array : [u8; 1] = [0 ; 1];
+        getrandom(&mut random_number_array);
+        let index = random_number_array[0] % 5;
+        match index {
+            0 => Self::get_square_block(),
+            1 => Self::get_i_block(),
+            2 => Self::get_l_block(),
+            3 => Self::get_t_block(),
+            4 => Self::get_z_block(),
+            _ => Self::get_basic_block()
         }
-    }
-
-    fn get_random_block(&mut self) -> Block {
-        getrandom(self.random_number_array);
-        let index = & self.random_number_array[0] % 5;
-        self.block_list[index as usize]
     }
 
     fn get_basic_block() -> Block{
@@ -334,6 +325,7 @@ impl BlockType {
         b.calculate_most_cell();
         b
     }
+
 }
 
 
@@ -395,7 +387,7 @@ mod tests {
 
     #[test]
     fn mapping_block_to_board() {
-        let block = Block::get_block();
+        let block = BlockType::get_random_block();
         let mut board = Board::new_board(6, 6);
         board.new_round();
         // board.draw_current_block();
@@ -404,7 +396,7 @@ mod tests {
 
     #[test]
     fn test_collision() {
-        let block = Block::get_block();
+        let block = BlockType::get_random_block();
         let mut board = Board::new_board(6, 6);
         board.new_round();
         let next_position = Point {
@@ -416,8 +408,9 @@ mod tests {
 
     #[test]
     fn test_block_most_cell() {
-        let block = Block::get_block();
-        let (a,b,c,d) = block.calculate_most_cell();
+        let mut block = BlockType::get_t_block();
+        block.calculate_most_cell();
+        let a =5;
     }
 
 
