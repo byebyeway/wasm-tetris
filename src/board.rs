@@ -187,14 +187,7 @@ impl Board {
     }
 
     fn left_to_edge_length(&self, next_x : i32) -> i32 {
-        log!("enter left_to_edge_length");
-        match self.active_block.left_most_cell - self.active_block.center_x_offset {
-            x if x < 0 => -x + next_x,
-            x if x == 0 => next_x,
-            x if x > 0 => next_x+x,
-            _ => 0
-        }
-
+        next_x + self.active_block.left_most_cell  - self.active_block.center_x_offset
     }
 
     fn right_to_edge_length(&self, next_x : i32) -> i32 {
@@ -362,13 +355,15 @@ impl Block {
                 let index =  self.get_index(j, i);
                 if self.shape_array[index as usize] == CellState::Ocupied && left_most_cell == -1 {
                     left_most_cell = i as i32;
-                } else if self.shape_array[index as usize] == CellState::Ocupied {
+                }
+                if self.shape_array[index as usize] == CellState::Ocupied && i as i32 > right_most_cell{
                     right_most_cell = i as i32;
                 }
                 
                 if self.shape_array[index as usize] == CellState::Ocupied && top_most_cell == -1 {
                     top_most_cell = j as i32;
-                } else if self.shape_array[index as usize] == CellState::Ocupied {
+                }
+                if self.shape_array[index as usize] == CellState::Ocupied && j as i32 > bottom_most_cell{
                     bottom_most_cell = j as i32;
                 }
             }
@@ -408,9 +403,8 @@ mod tests {
 
     #[test]
     fn test_block_most_cell() {
-        let mut block = BlockType::get_t_block();
-        block.calculate_most_cell();
-        let a =5;
+        let mut block = BlockType::get_z_block();
+        print!("left{}, right{}, top{}, bottom{}",block.left_most_cell, block.right_most_cell, block.top_most_cell, block.bottom_most_cell);
     }
 
 
