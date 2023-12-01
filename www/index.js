@@ -5,8 +5,8 @@ const GRID_COLOR = "#CCCCCC";
 const DEAD_COLOR = "#FFFFFF";
 const ALIVE_COLOR = "#000000";
 
-const height = 9;
-const width = 9;
+const height = 16;
+const width = 16;
 
 const board = Board.new_board(height, width);
 board.new_round()
